@@ -4,13 +4,14 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env file
 env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.env'))
-env_loaded = load_dotenv(dotenv_path=env_path)
+print(f"Looking for .env file at: {env_path}")
+env_loaded = load_dotenv(dotenv_path=env_path, verbose=True)
 
 # Check for required variable
 openai_key_found = bool(os.getenv("OPENAI_API_KEY"))
 env_error = None
 if not env_loaded:
-    env_error = ".env file not found or failed to load."
+    env_error = f".env file not found or failed to load at path: {env_path}"
 elif not openai_key_found:
     env_error = "OPENAI_API_KEY not found in .env file."
 

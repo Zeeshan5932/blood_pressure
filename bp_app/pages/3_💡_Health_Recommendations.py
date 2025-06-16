@@ -10,6 +10,25 @@ st.set_page_config(
 import asyncio
 import sys
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+root_dir = Path(__file__).parent.parent.parent.absolute()
+env_path = root_dir / '.env'
+print(f"Looking for .env file at: {env_path}")
+env_loaded = load_dotenv(dotenv_path=str(env_path), verbose=True)
+
+# Log environment loading status
+if env_loaded:
+    print(f".env file loaded successfully from {env_path}")
+    api_key = os.getenv("OPENAI_API_KEY")
+    if api_key:
+        print(f"OpenAI API key found: {api_key[:5]}...{api_key[-5:] if len(api_key) > 10 else ''}")
+    else:
+        print("OpenAI API key not found in .env file")
+else:
+    print(f"Failed to load .env file from {env_path}")
 
 # Try to import OpenCV, but don't fail if it's not available
 try:
@@ -88,14 +107,30 @@ tab1, tab2 = st.tabs(["AI-Powered Recommendations", "What This Means"])
 with tab1:
     with st.container():
         st.markdown("<h2 class='section-header'>Your Personalized Health Plan</h2>", unsafe_allow_html=True)
-          # First check if the OpenAI API key is set
-        api_key = os.environ.get('OPENAI_API_KEY')
+        
+        # First check if the OpenAI API key is set - using os.getenv which works with dotenv
+        api_key = os.getenv('OPENAI_API_KEY')
+        
+        # Display environment loading status in the UI
+        if env_loaded:
+            st.sidebar.success("✅ Environment file loaded successfully")
+        else:
+            st.sidebar.error(f"❌ Failed to load .env file from {env_path}")
         
         if not api_key:
             st.warning("⚠️ OpenAI API key not found. Please add your API key to the .env file to get AI-powered recommendations.")
             st.info("Using default recommendations instead.")
+            
+            # Show debug info in an expandable section
+            with st.expander("Debug Information"):
+                st.write(f"Environment file path: {env_path}")
+                st.write(f"Environment file exists: {env_path.exists()}")
+                st.write(f"Environment loaded successfully: {env_loaded}")
+                st.write(f"Current working directory: {os.getcwd()}")
+            
             recommendations = get_default_recommendations(bp_classification["category"])
         else:
+            st.success("✅ Using OpenAI API for personalized recommendations")
             # Create a spinner while recommendations are generating
             with st.spinner("Generating personalized AI recommendations based on your data..."):
                 # We'll use asyncio to handle the async OpenAI call

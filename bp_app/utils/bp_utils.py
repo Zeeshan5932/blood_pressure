@@ -25,20 +25,49 @@ except ImportError:
 # Set OpenAI API key from .env file, environment variables, or Streamlit secrets
 def get_openai_api_key() -> Optional[str]:
     try:
-        # Try to load from .env file
+        # Try to load from .env file with better path handling
         from dotenv import load_dotenv
-        env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
-        load_dotenv(dotenv_path=env_path)
+        from pathlib import Path
+        
+        # Find the .env file in the project root (3 levels up from the current file)
+        current_file = Path(__file__)
+        project_root = current_file.parent.parent.parent
+        env_path = project_root / '.env'
+        
+        # Print debug info about the path
+        print(f"Looking for .env file in bp_utils.py at: {env_path}")
+        print(f".env file exists: {env_path.exists()}")
+        
+        # Load the .env file with verbose output
+        env_loaded = load_dotenv(dotenv_path=str(env_path), verbose=True)
+        print(f".env loaded successfully in bp_utils.py: {env_loaded}")
     except ImportError:
-        st.warning("python-dotenv not installed. Install with 'pip install python-dotenv' to use .env files.")
+        print("python-dotenv not installed. Install with 'pip install python-dotenv' to use .env files.")
+        if hasattr(st, 'warning'):  # Check if we're in a Streamlit context
+            st.warning("python-dotenv not installed. Install with 'pip install python-dotenv' to use .env files.")
+    except Exception as e:
+        print(f"Error loading .env file: {str(e)}")
     
     # Try all possible sources for API key
+    api_key = None
+    
+    # Check environment variables first
     if 'OPENAI_API_KEY' in os.environ:
-        return os.environ['OPENAI_API_KEY']
-    elif 'openai' in st.secrets:
-        return st.secrets['openai']['api_key']
+        print("API key found in environment variables")
+        api_key = os.environ['OPENAI_API_KEY']
+    # Then try Streamlit secrets
+    elif hasattr(st, 'secrets') and 'openai' in st.secrets:
+        print("API key found in Streamlit secrets")
+        api_key = st.secrets['openai']['api_key']
+    
+    # If we found a key, print a masked version for debugging
+    if api_key:
+        masked_key = f"{api_key[:5]}...{api_key[-5:]}" if len(api_key) > 10 else "***"
+        print(f"API key found: {masked_key}")
     else:
-        return None
+        print("API key not found in any location")
+    
+    return api_key
 
 def estimate_bp_from_frame(frame):
     """
@@ -208,25 +237,45 @@ async def get_openai_recommendations(bp_data: Dict, user_info: Dict) -> Dict:
     Returns:
         Dictionary containing diet, exercise, and lifestyle recommendations
     """
+    # Debug output
+    print("Starting OpenAI recommendation generation")
+    
     if not OPENAI_AVAILABLE:
+        error_msg = "OpenAI library not installed. Please install it with 'pip install openai'."
+        print(f"Error: {error_msg}")
         return {
-            "error": "OpenAI library not installed. Please install it with 'pip install openai'.",
+            "error": error_msg,
             "diet": [],
             "exercise": [],
             "lifestyle": []
         }
     
+    # Get the API key with our improved function
     api_key = get_openai_api_key()
     
     if not api_key:
+        error_msg = "OpenAI API key not found. Please add it to your .env file in the project root directory."
+        print(f"Error: {error_msg}")
         return {
-            "error": "OpenAI API key not found. Please add it to your environment variables or Streamlit secrets.",
+            "error": error_msg,
             "diet": [],
             "exercise": [],
             "lifestyle": []
         }
     
-    client = AsyncOpenAI(api_key=api_key)
+    try:
+        print("Initializing AsyncOpenAI client")
+        client = AsyncOpenAI(api_key=api_key)
+        print("AsyncOpenAI client initialized successfully")
+    except Exception as e:
+        error_msg = f"Failed to initialize OpenAI client: {str(e)}"
+        print(f"Error: {error_msg}")
+        return {
+            "error": error_msg,
+            "diet": [],
+            "exercise": [],
+            "lifestyle": []
+        }
     
     # Prepare user information for the prompt
     age = user_info.get("age", "unknown age")
