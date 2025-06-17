@@ -1,6 +1,6 @@
 [server]
 headless = true
-enableCORS = false
+enableCORS = true
 enableXsrfProtection = true
 
 [theme]
@@ -8,3 +8,10 @@ primaryColor="#3498db"
 backgroundColor="#ffffff"
 secondaryBackgroundColor="#f8f9fa"
 textColor="#333333"
+
+[logger]
+level = "info"
+
+[client]
+showErrorDetails = true
+toolbarMode = "developer"

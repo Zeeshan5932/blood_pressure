@@ -7,12 +7,21 @@ env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.env')
 print(f"Looking for .env file at: {env_path}")
 
 # First try to load from Streamlit secrets (for cloud deployment)
-if hasattr(st, 'secrets') and 'openai' in st.secrets:
-    print("Using OpenAI API key from Streamlit secrets")
-    os.environ["OPENAI_API_KEY"] = st.secrets['openai']['api_key']
-    env_loaded = True
-    openai_key_found = True
-    env_error = None
+openai_key_found = False
+env_loaded = False
+env_error = None
+
+try:
+    if hasattr(st, 'secrets') and 'openai' in st.secrets and st.secrets['openai'].get('api_key'):
+        print("Using OpenAI API key from Streamlit secrets")
+        os.environ["OPENAI_API_KEY"] = st.secrets['openai']['api_key']
+        env_loaded = True
+        openai_key_found = True
+    else:
+        print("API key not found in Streamlit secrets or secrets not available")
+except Exception as e:
+    print(f"Error accessing Streamlit secrets: {str(e)}")
+    env_error = f"Error accessing Streamlit secrets: {str(e)}"
 else:
     # Fall back to .env file (for local development)
     env_loaded = load_dotenv(dotenv_path=env_path, verbose=True)
@@ -73,14 +82,34 @@ with st.container():
     col1, col2, col3 = st.columns(3)
     with col1:
         if st.button("📝 Start Questionnaire", use_container_width=True, type="primary"):
-            st.switch_page("pages/1_📝_Questionnaire.py")
+            # Safe navigation that works across all Streamlit versions
+            import streamlit.runtime as sr
+            try:
+                # Try the newer method first
+                st.switch_page("pages/1_📝_Questionnaire.py")
+            except (AttributeError, ModuleNotFoundError):
+                # Fallback for older Streamlit versions
+                sr.scriptrunner.add_script_run_ctx.get_script_run_ctx().on_script_finished = lambda: sr.scriptrunner.add_script_run_ctx.get_script_run_ctx()._on_script_finished("pages/1_📝_Questionnaire.py")
     with col2:
         if st.button("📷 Blood Pressure Detection", use_container_width=True, type="primary"):
-            st.switch_page("pages/2_📷_Webcam_or_Upload.py")
+            # Safe navigation
+            import streamlit.runtime as sr
+            try:
+                # Try the newer method first
+                st.switch_page("pages/2_📷_Webcam_or_Upload.py")
+            except (AttributeError, ModuleNotFoundError):
+                # Fallback for older Streamlit versions
+                sr.scriptrunner.add_script_run_ctx.get_script_run_ctx().on_script_finished = lambda: sr.scriptrunner.add_script_run_ctx.get_script_run_ctx()._on_script_finished("pages/2_📷_Webcam_or_Upload.py")
     with col3:
         if st.button("💡 Get Recommendations", use_container_width=True, type="primary"):
-            st.switch_page("pages/3_💡_Health_Recommendations.py")
-
+            # Safe navigation
+            import streamlit.runtime as sr
+            try:
+                # Try the newer method first
+                st.switch_page("pages/3_💡_Health_Recommendations.py")
+            except (AttributeError, ModuleNotFoundError):
+                # Fallback for older Streamlit versions
+                sr.scriptrunner.add_script_run_ctx.get_script_run_ctx().on_script_finished = lambda: sr.scriptrunner.add_script_run_ctx.get_script_run_ctx()._on_script_finished("pages/3_💡_Health_Recommendations.py")
     st.markdown("</div>", unsafe_allow_html=True)
 
 # Testimonials

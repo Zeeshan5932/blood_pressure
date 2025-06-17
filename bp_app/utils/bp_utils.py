@@ -32,12 +32,18 @@ def get_openai_api_key() -> Optional[str]:
             return os.environ['OPENAI_API_KEY']
             
         # Next, check Streamlit secrets (for cloud deployment)
-        if hasattr(st, 'secrets') and 'openai' in st.secrets:
-            print("API key found in Streamlit secrets")
-            api_key = st.secrets['openai']['api_key']
-            # Also set it in environment for libraries that need it there
-            os.environ["OPENAI_API_KEY"] = api_key
-            return api_key
+        try:
+            if hasattr(st, 'secrets') and 'openai' in st.secrets and st.secrets['openai'].get('api_key'):
+                print("API key found in Streamlit secrets")
+                api_key = st.secrets['openai']['api_key']
+                # Also set it in environment for libraries that need it there
+                os.environ["OPENAI_API_KEY"] = api_key
+                return api_key
+        except Exception as e:
+            print(f"Error accessing Streamlit secrets: {str(e)}")
+            if hasattr(st, 'error'):
+                st.error("Unable to access OpenAI API key from secrets. Some features may not work.")
+            # Continue to try other methods
         
         # As a fallback, try to load from .env file with better path handling
         from dotenv import load_dotenv

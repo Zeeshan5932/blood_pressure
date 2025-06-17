@@ -13,9 +13,15 @@ import os
 import sys
 import time
 
-# Helper function for navigation
+# Helper function for navigation that works with all Streamlit versions
 def navigate_to(page):
-    st.switch_page(page)
+    import streamlit.runtime as sr
+    try:
+        # Try the newer method first
+        st.switch_page(page)
+    except (AttributeError, ModuleNotFoundError):
+        # Fallback for older Streamlit versions
+        sr.scriptrunner.add_script_run_ctx.get_script_run_ctx().on_script_finished = lambda: sr.scriptrunner.add_script_run_ctx.get_script_run_ctx()._on_script_finished(page)
 
 # Try to import OpenCV, handle gracefully if unavailable
 try:
@@ -122,7 +128,7 @@ with tab1:
                     metric_col1, metric_col2 = st.columns(2)
                     metric_col1.metric("Systolic", s)
                     metric_col2.metric("Diastolic", d)
-                    st.markdown(f"""<div style="color: {bp_classification['color']}; font-weight: bold; font-size: 1.3rem;">
+                    st.markdown(f"""<div style="color: {bp_classification['color']}; font-weight: bold; font-size: 1.3rem">
                         {bp_classification['category']}</div>""", unsafe_allow_html=True)
                     st.write(bp_classification['description'])
 
