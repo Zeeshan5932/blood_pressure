@@ -290,12 +290,17 @@ async def get_openai_recommendations(bp_data: Dict, user_info: Dict) -> Dict:
             "exercise": [],
             "lifestyle": []
         }
-    
-    # Get the API key with our improved function
-    api_key = get_openai_api_key()
+      # First check if API key is already in environment variables 
+    # (it should be set before this function is called)
+    api_key = os.getenv("OPENAI_API_KEY")
     
     if not api_key:
-        error_msg = "OpenAI API key not found. Please add it to your .env file in the project root directory."
+        # If not in environment, try one more time with our helper function
+        print("API key not found in environment variables in get_openai_recommendations, trying get_openai_api_key()")
+        api_key = get_openai_api_key()
+    
+    if not api_key:
+        error_msg = "OpenAI API key not found in any location. Please add it to your environment, .env file, or Streamlit secrets."
         print(f"Error: {error_msg}")
         return {
             "error": error_msg,
@@ -304,8 +309,12 @@ async def get_openai_recommendations(bp_data: Dict, user_info: Dict) -> Dict:
             "lifestyle": []
         }
     
+    # Add more detailed logging
+    print(f"Using API key with prefix: {api_key[:3]}... for OpenAI request")
+    
     try:
         print("Initializing AsyncOpenAI client")
+        # Create client with explicit API key
         client = AsyncOpenAI(api_key=api_key)
         print("AsyncOpenAI client initialized successfully")
     except Exception as e:

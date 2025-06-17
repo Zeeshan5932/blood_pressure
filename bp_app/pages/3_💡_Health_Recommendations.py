@@ -13,45 +13,67 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from multiple sources
-root_dir = Path(__file__).parent.parent.parent.absolute()
-env_path = root_dir / '.env'
-print(f"Looking for .env file at: {env_path}")
+# Import utilities for API key handling
+from utils.bp_utils import get_openai_api_key
 
-# Try to get API key from multiple sources
+# Set up a more robust environment variable loading process
+print("Health Recommendations page: Initializing API key handling")
+
+# First, try to load directly from environment
 api_key_found = False
+api_key = os.getenv('OPENAI_API_KEY')
 
-# First check if key is already in environment variables
-if 'OPENAI_API_KEY' in os.environ and os.environ['OPENAI_API_KEY']:
+if api_key:
     api_key_found = True
-    print(f"OpenAI API key found in environment variables")
+    print("Health Recommendations page: API key already found in environment variables")
+else:
+    # Load environment variables using the robust function from bp_utils
+    print("Health Recommendations page: Attempting to load API key from all sources")
+    api_key = get_openai_api_key()
+    api_key_found = bool(api_key)
 
-# Then check Streamlit secrets
-if not api_key_found and hasattr(st, 'secrets') and 'openai' in st.secrets:
-    try:
-        if st.secrets['openai'].get('api_key'):
-            os.environ["OPENAI_API_KEY"] = st.secrets['openai']['api_key']
-            api_key_found = True
-            print(f"OpenAI API key found in Streamlit secrets")
-    except Exception as e:
-        print(f"Error accessing Streamlit secrets: {str(e)}")
-
-# Finally try .env file (for local development)
+# Try loading from .env file in multiple locations as a fallback
 if not api_key_found:
-    env_loaded = load_dotenv(dotenv_path=str(env_path), verbose=True)
-    if env_loaded and os.getenv("OPENAI_API_KEY"):
-        api_key_found = True
-        print(f".env file loaded successfully from {env_path}")
-    else:
-        print(f"Failed to load API key from .env file at {env_path}")
+    print("Health Recommendations page: Trying multiple .env file locations")
+    # Try multiple possible locations for the .env file
+    possible_locations = [
+        Path(__file__).parent.parent.parent / '.env',  # project root
+        Path(__file__).parent.parent / '.env',         # bp_app directory
+        Path.cwd() / '.env',                          # current working directory
+    ]
+    
+    for env_path in possible_locations:
+        print(f"Health Recommendations page: Looking for .env file at: {env_path}")
+        if env_path.exists():
+            print(f"Health Recommendations page: Found .env file at: {env_path}")
+            try:
+                # Force reload the environment variables
+                load_dotenv(dotenv_path=str(env_path), override=True)
+                api_key = os.getenv("OPENAI_API_KEY")
+                if api_key:
+                    api_key_found = True
+                    print(f"Health Recommendations page: Successfully loaded API key from {env_path}")
+                    break
+            except Exception as e:
+                print(f"Health Recommendations page: Error loading .env file: {str(e)}")
+    
+# Final check for Streamlit secrets as a last resort
+if not api_key_found and hasattr(st, 'secrets'):
+    try:
+        if 'openai' in st.secrets and st.secrets['openai'].get('api_key'):
+            os.environ["OPENAI_API_KEY"] = st.secrets['openai']['api_key']
+            api_key = st.secrets['openai']['api_key']
+            api_key_found = True
+            print("Health Recommendations page: Successfully loaded API key from Streamlit secrets")
+    except Exception as e:
+        print(f"Health Recommendations page: Error accessing Streamlit secrets: {str(e)}")
 
 # Log final status
 if api_key_found:
-    api_key = os.getenv("OPENAI_API_KEY")
-    masked_key = f"{api_key[:5]}...{api_key[-5:]}" if api_key and len(api_key) > 10 else "***"
-    print(f"OpenAI API key found: {masked_key}")
+    masked_key = f"{api_key[:3]}...{api_key[-3:]}" if api_key and len(api_key) > 6 else "***"
+    print(f"Health Recommendations page: Final status - API key found: {masked_key}")
 else:
-    print("OpenAI API key not found in any location")
+    print("Health Recommendations page: Final status - API key NOT found in any location")
 
 # Try to import OpenCV, but don't fail if it's not available
 try:
@@ -151,26 +173,41 @@ tab1, tab2 = st.tabs(["AI-Powered Recommendations", "What This Means"])
 
 with tab1:
     with st.container():
-        st.markdown("<h2 class='section-header'>Your Personalized Health Plan</h2>", unsafe_allow_html=True)
-          # Check if the OpenAI API key is set
+        st.markdown("<h2 class='section-header'>Your Personalized Health Plan</h2>", unsafe_allow_html=True)        # Double-check API key status at time of use
         api_key = os.getenv('OPENAI_API_KEY')
         
         # Display API key status in the UI
         if api_key_found:
             st.sidebar.success("✅ OpenAI API key loaded successfully")
         else:
-            st.sidebar.error("❌ OpenAI API key not found")
+            st.sidebar.warning("⚠️ API key not found - Using default recommendations")
+        
+        # If API key still not found, get it one more time
+        if not api_key:
+            # Try one last time with the utility function
+            api_key = get_openai_api_key()
+            api_key_found = bool(api_key)
         
         if not api_key:
             st.warning("⚠️ OpenAI API key not found. Using default recommendations instead.")
-            st.info("To get personalized AI recommendations, please set up your OpenAI API key in Streamlit secrets or the .env file.")
+            
+            # Add a clearer instruction message
+            st.info("""
+            To get personalized AI recommendations, please set up your OpenAI API key using one of these methods:
+            
+            1. **Streamlit Cloud**: Add your key in the Streamlit Cloud dashboard under Settings > Secrets
+            2. **Local Development**: Create a `.env` file in the project root with `OPENAI_API_KEY=your_key_here`
+            """)
             
             # Show debug info in an expandable section
             with st.expander("Debug Information"):
-                st.write(f"API key found in any location: {api_key_found}")
-                st.write(f"Environment file path: {env_path}")
-                st.write(f"Environment file exists: {env_path.exists()}")
                 st.write(f"Current working directory: {os.getcwd()}")
+                st.write(f"API key found in environment: {'OPENAI_API_KEY' in os.environ}")
+                
+                # Look for .env files in common locations
+                for possible_path in [Path.cwd() / '.env', Path(__file__).parent.parent.parent / '.env']:
+                    st.write(f"Checking for .env at: {possible_path}")
+                    st.write(f"  - File exists: {possible_path.exists()}")
                 
                 # Check if Streamlit secrets is available
                 if hasattr(st, 'secrets'):
@@ -185,7 +222,17 @@ with tab1:
                         st.write("'openai' section missing from Streamlit secrets")
                 else:
                     st.write("Streamlit secrets is not available")
-            
+                
+                # Add a copy-paste template for users
+                st.code("""
+# Add this to .env file in project root:
+OPENAI_API_KEY=your_api_key_here
+
+# OR add this to .streamlit/secrets.toml:
+[openai]
+api_key = "your_api_key_here"
+                """)
+              # Use default recommendations since we can't use OpenAI
             recommendations = get_default_recommendations(bp_classification["category"])
         else:
             st.success("✅ Using OpenAI API for personalized recommendations")
@@ -193,17 +240,38 @@ with tab1:
             with st.spinner("Generating personalized AI recommendations based on your data..."):
                 # We'll use asyncio to handle the async OpenAI call
                 try:
+                    # Make sure we set the API key correctly for OpenAI
+                    os.environ["OPENAI_API_KEY"] = api_key
+                    
+                    # Create a new asyncio event loop for the OpenAI API call
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
+                    
+                    # Log that we're about to call OpenAI
+                    print("Health Recommendations page: Calling OpenAI API for recommendations")
                     recommendations = loop.run_until_complete(get_openai_recommendations(bp_classification, user_info))
+                    
+                    # Check if there was an error with the OpenAI call
+                    if "error" in recommendations:
+                        st.warning(f"OpenAI API error: {recommendations['error']}")
+                        print(f"Health Recommendations page: OpenAI API error: {recommendations['error']}")
+                        # Fallback to default recommendations
+                        recommendations = get_default_recommendations(bp_classification["category"])
+                    else:
+                        print("Health Recommendations page: Successfully got OpenAI recommendations")
+                        
                 except Exception as e:
-                    st.error(f"Error generating OpenAI recommendations: {str(e)}")
+                    error_msg = str(e)
+                    st.error(f"Error generating OpenAI recommendations: {error_msg}")
+                    print(f"Health Recommendations page: Exception during OpenAI call: {error_msg}")
+                    
+                    # Show detailed error information
+                    with st.expander("Error Details"):
+                        st.code(error_msg)
+                        import traceback
+                        st.code(traceback.format_exc())
+                    
                     # Fallback to default recommendations
-                    recommendations = get_default_recommendations(bp_classification["category"])
-                
-                # Check if there was an error with the OpenAI call
-                if "error" in recommendations:
-                    st.warning(f"Using standard recommendations: {recommendations['error']}")
                     recommendations = get_default_recommendations(bp_classification["category"])
         
         # Display the diet recommendations
