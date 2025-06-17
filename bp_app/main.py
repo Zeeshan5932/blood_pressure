@@ -2,18 +2,26 @@ import streamlit as st
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables from .env file or Streamlit secrets
 env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.env'))
 print(f"Looking for .env file at: {env_path}")
-env_loaded = load_dotenv(dotenv_path=env_path, verbose=True)
 
-# Check for required variable
-openai_key_found = bool(os.getenv("OPENAI_API_KEY"))
-env_error = None
-if not env_loaded:
-    env_error = f".env file not found or failed to load at path: {env_path}"
-elif not openai_key_found:
-    env_error = "OPENAI_API_KEY not found in .env file."
+# First try to load from Streamlit secrets (for cloud deployment)
+if hasattr(st, 'secrets') and 'openai' in st.secrets:
+    print("Using OpenAI API key from Streamlit secrets")
+    os.environ["OPENAI_API_KEY"] = st.secrets['openai']['api_key']
+    env_loaded = True
+    openai_key_found = True
+    env_error = None
+else:
+    # Fall back to .env file (for local development)
+    env_loaded = load_dotenv(dotenv_path=env_path, verbose=True)
+    openai_key_found = bool(os.getenv("OPENAI_API_KEY"))
+    env_error = None
+    if not env_loaded:
+        env_error = f".env file not found or failed to load at path: {env_path}"
+    elif not openai_key_found:
+        env_error = "OPENAI_API_KEY not found in .env file."
 
 # Configure page
 st.set_page_config(
