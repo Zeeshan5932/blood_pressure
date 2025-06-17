@@ -6,18 +6,23 @@ import streamlit as st
 BP Fuel AI - Main Entry Point
 This is the entry point for the BP Fuel AI application. It:
 1. Sets up the Python import path for the application
-2. Loads environment variables and API keys
+2. Loads environment variables and API keys from Streamlit secrets
 3. Redirects to the main application file
 """
 
 # Show that we're loading
 st.set_page_config(page_title="BP Fuel AI", page_icon="❤️")
 
-# Check if OpenAI API key is set and show a message if not
-api_key = os.getenv("OPENAI_API_KEY")
-if not api_key and hasattr(st, 'secrets') and 'openai' in st.secrets and st.secrets['openai'].get('api_key'):
-    os.environ["OPENAI_API_KEY"] = st.secrets['openai']['api_key']
-    api_key = st.secrets['openai']['api_key']
+# Automatically load OpenAI API key from Streamlit secrets (if available)
+# This handles both Streamlit Cloud and local development with secrets.toml
+try:
+    if hasattr(st, 'secrets') and 'openai' in st.secrets and st.secrets['openai'].get('api_key'):
+        print("Loading API key from Streamlit secrets")
+        os.environ["OPENAI_API_KEY"] = st.secrets['openai']['api_key']
+        print("API key loaded successfully from Streamlit secrets")
+    # No else case - we don't need warning messages here as we'll handle them in the app
+except Exception as e:
+    print(f"Error loading API key from secrets: {e}")
 
 with st.spinner("Loading BP Fuel AI..."):
     try:
