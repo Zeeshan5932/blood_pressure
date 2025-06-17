@@ -42,72 +42,46 @@ def get_openai_api_key() -> Optional[str]:
     Returns:
         str or None: The OpenAI API key if found, None otherwise
     """
-    # Track if we've shown an error message to avoid duplicates
-    error_shown = False
+    # Check environment variables first (fastest)
+    if 'OPENAI_API_KEY' in os.environ and os.environ['OPENAI_API_KEY']:
+        print("API key found in environment variables")
+        return os.environ['OPENAI_API_KEY']
     
+    # Check Streamlit secrets
     try:
-        # First check if key is already available in environment variables
-        if 'OPENAI_API_KEY' in os.environ and os.environ['OPENAI_API_KEY']:
-            print("API key found in environment variables")
-            return os.environ['OPENAI_API_KEY']
-        
-        # Next, check Streamlit secrets (for cloud deployment)
-        try:
-            if hasattr(st, 'secrets'):
-                if 'openai' in st.secrets:
-                    if st.secrets['openai'].get('api_key'):
-                        print("API key found in Streamlit secrets")
-                        api_key = st.secrets['openai']['api_key']
-                        # Also set it in environment for libraries that need it there
-                        os.environ["OPENAI_API_KEY"] = api_key
-                        return api_key
-                    else:
-                        print("'api_key' exists in st.secrets['openai'] but is empty")
-                else:
-                    print("'openai' section not found in st.secrets")
-            else:
-                print("st.secrets is not available")
-        except Exception as e:
-            print(f"Error accessing Streamlit secrets: {str(e)}")
-            error_shown = True
-        
-        # As a fallback, try to load from .env file with better path handling
-        try:
-            from dotenv import load_dotenv
-            from pathlib import Path
-            
-            # Try multiple possible locations for the .env file
-            possible_locations = [
-                Path(__file__).parent.parent.parent / '.env',  # project root
-                Path(__file__).parent.parent / '.env',         # bp_app directory
-                Path.cwd() / '.env',                          # current working directory
-            ]
-            
-            for env_path in possible_locations:
-                print(f"Looking for .env file at: {env_path}")
-                if env_path.exists():
-                    print(f".env file found at: {env_path}")
-                    if load_dotenv(dotenv_path=str(env_path), verbose=True):
-                        print(".env file loaded successfully")
-                        if 'OPENAI_API_KEY' in os.environ and os.environ['OPENAI_API_KEY']:
-                            print("API key found in .env file")
-                            return os.environ['OPENAI_API_KEY']
-                        else:
-                            print("OPENAI_API_KEY not found in .env file or is empty")
-            
-            print("No valid .env file with OPENAI_API_KEY found")
-        except ImportError:
-            print("python-dotenv not installed. Install with 'pip install python-dotenv' to use .env files.")
-        except Exception as e:
-            print(f"Error loading .env file: {str(e)}")
-    
+        if hasattr(st, 'secrets') and 'openai' in st.secrets:
+            if st.secrets['openai'].get('api_key'):
+                print("API key found in Streamlit secrets")
+                api_key = st.secrets['openai']['api_key']
+                os.environ["OPENAI_API_KEY"] = api_key
+                return api_key
     except Exception as e:
-        print(f"Unexpected error in get_openai_api_key: {str(e)}")
+        print(f"Error accessing Streamlit secrets: {str(e)}")
     
-    # Show a warning if we're in a Streamlit context
-    if not error_shown and hasattr(st, 'warning'):
-        st.warning("⚠️ OpenAI API key not found. Some features will not be available.")
-    
+    # Finally, try .env files
+    try:
+        from dotenv import load_dotenv
+        from pathlib import Path
+        
+        # Try multiple locations for .env
+        locations = [
+            Path(__file__).parent.parent.parent / '.env',  # project root
+            Path(__file__).parent.parent / '.env',         # bp_app directory
+            Path.cwd() / '.env',                          # current working directory
+        ]
+        
+        for env_path in locations:
+            if env_path.exists():
+                print(f".env file found at: {env_path}")
+                if load_dotenv(dotenv_path=str(env_path)):
+                    if 'OPENAI_API_KEY' in os.environ and os.environ['OPENAI_API_KEY']:
+                        print("API key loaded from .env file")
+                        return os.environ['OPENAI_API_KEY']
+    except Exception as e:
+        print(f"Error loading from .env: {str(e)}")
+      # Don't print warnings if we're likely using Streamlit secrets
+    if not hasattr(st, 'secrets') or not ('openai' in st.__dict__.get('secrets', {})):
+        print("OpenAI API key not found in any location")
     return None
 
 def estimate_bp_from_frame(frame):
@@ -282,35 +256,34 @@ async def get_openai_recommendations(bp_data: Dict, user_info: Dict) -> Dict:
     print("Starting OpenAI recommendation generation")
     
     if not OPENAI_AVAILABLE:
-        error_msg = "OpenAI library not installed. Please install it with 'pip install openai'."
-        print(f"Error: {error_msg}")
+        print("OpenAI library not installed")
         return {
-            "error": error_msg,
+            "error": "OpenAI library not installed",
             "diet": [],
             "exercise": [],
             "lifestyle": []
         }
-      # First check if API key is already in environment variables 
-    # (it should be set before this function is called)
+    
+    # Check if API key is available
     api_key = os.getenv("OPENAI_API_KEY")
     
     if not api_key:
-        # If not in environment, try one more time with our helper function
-        print("API key not found in environment variables in get_openai_recommendations, trying get_openai_api_key()")
+        # Try one more time with our helper function
+        print("Trying to get API key")
         api_key = get_openai_api_key()
-    
-    if not api_key:
-        error_msg = "OpenAI API key not found in any location. Please add it to your environment, .env file, or Streamlit secrets."
-        print(f"Error: {error_msg}")
+      if not api_key:
+        # Avoid printing warning if we're likely using Streamlit secrets
+        if not hasattr(st, 'secrets') or not ('openai' in st.__dict__.get('secrets', {})):
+            print("OpenAI API key not found, returning empty recommendations")
         return {
-            "error": error_msg,
+            "error": "API key not available",
             "diet": [],
             "exercise": [],
             "lifestyle": []
         }
     
     # Add more detailed logging
-    print(f"Using API key with prefix: {api_key[:3]}... for OpenAI request")
+    print("API key available for OpenAI request")
     
     try:
         print("Initializing AsyncOpenAI client")

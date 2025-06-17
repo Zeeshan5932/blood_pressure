@@ -173,65 +173,42 @@ tab1, tab2 = st.tabs(["AI-Powered Recommendations", "What This Means"])
 
 with tab1:
     with st.container():
-        st.markdown("<h2 class='section-header'>Your Personalized Health Plan</h2>", unsafe_allow_html=True)        # Double-check API key status at time of use
+        st.markdown("<h2 class='section-header'>Your Personalized Health Plan</h2>", unsafe_allow_html=True)        # Check API key from environment
         api_key = os.getenv('OPENAI_API_KEY')
         
-        # Display API key status in the UI
-        if api_key_found:
-            st.sidebar.success("✅ OpenAI API key loaded successfully")
-        else:
-            st.sidebar.warning("⚠️ API key not found - Using default recommendations")
-        
-        # If API key still not found, get it one more time
+        # Try one more time with the utility function if needed
         if not api_key:
-            # Try one last time with the utility function
             api_key = get_openai_api_key()
             api_key_found = bool(api_key)
         
+        # Only show success icon if API key is found, don't show warnings
+        if api_key_found:
+            st.sidebar.success("✅ Using AI-powered recommendations")
+        
+        # Generate recommendations based on API key availability
         if not api_key:
-            st.warning("⚠️ OpenAI API key not found. Using default recommendations instead.")
+            # Use default recommendations without showing warnings
+            print("API key not found, using default recommendations")
+            recommendations = get_default_recommendations(bp_classification["category"])
             
-            # Add a clearer instruction message
-            st.info("""
-            To get personalized AI recommendations, please set up your OpenAI API key using one of these methods:
-            
-            1. **Streamlit Cloud**: Add your key in the Streamlit Cloud dashboard under Settings > Secrets
-            2. **Local Development**: Create a `.env` file in the project root with `OPENAI_API_KEY=your_key_here`
-            """)
-            
-            # Show debug info in an expandable section
-            with st.expander("Debug Information"):
-                st.write(f"Current working directory: {os.getcwd()}")
-                st.write(f"API key found in environment: {'OPENAI_API_KEY' in os.environ}")
+            # Optional: Users who need to debug can expand this section
+            with st.expander("Advanced: API Configuration"):
+                st.info("Using standard recommendations. For personalized AI recommendations, an OpenAI API key is needed.")
                 
-                # Look for .env files in common locations
-                for possible_path in [Path.cwd() / '.env', Path(__file__).parent.parent.parent / '.env']:
-                    st.write(f"Checking for .env at: {possible_path}")
-                    st.write(f"  - File exists: {possible_path.exists()}")
-                
-                # Check if Streamlit secrets is available
+                # Check if Streamlit secrets is configured correctly
                 if hasattr(st, 'secrets'):
-                    st.write("Streamlit secrets is available")
                     if 'openai' in st.secrets:
-                        st.write("'openai' section exists in Streamlit secrets")
                         if 'api_key' in st.secrets['openai']:
-                            st.write("'api_key' exists in Streamlit secrets (but might be empty)")
+                            if st.secrets['openai']['api_key']:
+                                st.success("API key found in Streamlit secrets but not accessible. Try restarting the app.")
+                            else:
+                                st.warning("API key in Streamlit secrets is empty.")
                         else:
-                            st.write("'api_key' missing from Streamlit secrets")
+                            st.warning("'api_key' missing from 'openai' section in secrets.")
                     else:
-                        st.write("'openai' section missing from Streamlit secrets")
+                        st.warning("'openai' section missing from secrets configuration.")
                 else:
-                    st.write("Streamlit secrets is not available")
-                
-                # Add a copy-paste template for users
-                st.code("""
-# Add this to .env file in project root:
-OPENAI_API_KEY=your_api_key_here
-
-# OR add this to .streamlit/secrets.toml:
-[openai]
-api_key = "your_api_key_here"
-                """)
+                    st.warning("Streamlit secrets are not available.")
               # Use default recommendations since we can't use OpenAI
             recommendations = get_default_recommendations(bp_classification["category"])
         else:
