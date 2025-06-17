@@ -14,34 +14,54 @@ logger.info(f"Streamlit version: {st.__version__}")
 
 # Set up paths in a way that works for both local and cloud
 try:
-    # Handle both absolute and relative paths for cloud deployment
-    bp_app_dir = "bp_app"  # Default to relative path for cloud
-    if os.path.isdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "bp_app")):
-        bp_app_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bp_app")
-        logger.info(f"Using absolute path for bp_app: {bp_app_dir}")
-    else:
-        logger.info(f"Using relative path for bp_app: {bp_app_dir}")
+    # First, identify the project root directory 
+    project_root = os.path.dirname(os.path.abspath(__file__))
+    logger.info(f"Project root: {project_root}")
     
-    # Add paths to sys.path
-    sys.path.insert(0, bp_app_dir)
-    utils_dir = os.path.join(bp_app_dir, "utils")
-    sys.path.insert(0, utils_dir)
-    logger.info(f"Updated sys.path with: {bp_app_dir} and {utils_dir}")
+    # Make sure our project root is in sys.path
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+        logger.info(f"Added project root to sys.path")
     
-    # Import main module - this redirects to bp_app/main.py
-    main_path = os.path.join(bp_app_dir, "main.py")
-    logger.info(f"Importing main module from: {main_path}")
+    # Clear out any existing 'utils' from sys.path to avoid confusion with cv2.utils
+    sys.path = [p for p in sys.path if not p.endswith('utils')]
     
-    # To make sure we catch all errors
+    # Import main module from bp_app directory
+    logger.info("Importing main module...")
+    
+    # Print out the current sys.path for debugging
+    logger.info(f"sys.path: {sys.path}")
+    
+    # Try to run the main app
     try:
-        with open(main_path, "r") as f:
-            exec(f.read())
+        # Execute the main.py file directly using a direct reference
+        main_file = os.path.join(project_root, "bp_app", "main.py")
+        logger.info(f"Executing main file from: {main_file}")
+        
+        # Use execfile-like behavior to run the main module
+        with open(main_file, "r") as f:
+            code = compile(f.read(), main_file, 'exec')
+            exec(code, globals())
     except Exception as e:
         logger.error(f"Error executing main.py: {str(e)}", exc_info=True)
-        st.error(f"Error running the application: {str(e)}")
+        st.error("⚠️ Error running the application")
         st.exception(e)
+        
+        # Show more debug info
+        st.info("Debug information:")
+        st.code(f"Working directory: {os.getcwd()}")
+        st.code(f"Python path: {sys.path}")
+        
+        # Try to show existing modules for debugging
+        try:
+            import pkgutil
+            modules = [m for _, m, _ in pkgutil.iter_modules()]
+            st.code(f"Available modules: {modules[:20]}...")
+        except:
+            pass
+            
 except Exception as e:
     logger.error(f"Setup error: {str(e)}", exc_info=True)
-    st.error(f"Error setting up the application: {str(e)}")
+    st.error("⚠️ Error setting up the application")
     st.exception(e)
     st.info("Please check that all dependencies are installed correctly via requirements.txt")

@@ -9,9 +9,20 @@ from typing import Dict, Tuple, List, Optional
 
 # Try to import OpenCV, but create fallbacks if not available
 try:
-    import cv2
-    OPENCV_AVAILABLE = True
-except ImportError:
+    # Make extra sure we're importing the right cv2
+    import sys
+    print(f"Python path when importing cv2: {sys.path}")
+    
+    # Try to import OpenCV - with error handling
+    try:
+        import cv2
+        print(f"Successfully imported cv2 version: {cv2.__version__}")
+        OPENCV_AVAILABLE = True
+    except ImportError as e:
+        print(f"Error importing cv2: {str(e)}")
+        OPENCV_AVAILABLE = False
+except Exception as e:
+    print(f"Unexpected error setting up OpenCV: {str(e)}")
     OPENCV_AVAILABLE = False
 
 # Try to import OpenAI - we'll handle missing cases

@@ -30,11 +30,11 @@ try:
 except ImportError:
     OPENCV_AVAILABLE = False
 
-# Add the parent directory to import from utils
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(parent_dir)
+# Fix import path to avoid conflict with cv2.utils
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from utils.bp_utils import estimate_bp_from_frame, classify_blood_pressure
+# Use absolute import to avoid conflict with cv2.utils
+from bp_app.utils.bp_utils import estimate_bp_from_frame, classify_blood_pressure
 
 # Load custom CSS
 css_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "styles.css")

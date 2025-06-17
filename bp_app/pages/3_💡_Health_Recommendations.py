@@ -38,11 +38,11 @@ except ImportError:
     OPENCV_AVAILABLE = False
     # We'll handle missing OpenCV gracefully as we're mainly using it for display in this page
 
-# Add the parent directory to sys.path to allow importing from utils
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(parent_dir)
+# Fix import path to avoid conflict with cv2.utils
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from utils.bp_utils import classify_blood_pressure, get_openai_recommendations, get_default_recommendations
+# Use absolute import to avoid conflict with cv2.utils
+from bp_app.utils.bp_utils import classify_blood_pressure, get_openai_recommendations, get_default_recommendations
 
 # Load custom CSS
 css_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "styles.css")
