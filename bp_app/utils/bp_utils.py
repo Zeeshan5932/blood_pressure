@@ -78,10 +78,12 @@ def get_openai_api_key() -> Optional[str]:
                         print("API key loaded from .env file")
                         return os.environ['OPENAI_API_KEY']
     except Exception as e:
-        print(f"Error loading from .env: {str(e)}")
-      # Don't print warnings if we're likely using Streamlit secrets
-    if not hasattr(st, 'secrets') or not ('openai' in st.__dict__.get('secrets', {})):
-        print("OpenAI API key not found in any location")
+        print(f"Error loading from .env: {str(e)}")    # Don't print warnings if we're likely using Streamlit secrets
+    try:
+        if not hasattr(st, 'secrets') or not ('openai' in st.__dict__.get('secrets', {}) and st.secrets['openai'].get('api_key')):
+            print("OpenAI API key not found in any location")
+    except Exception as e:
+        print(f"Error checking Streamlit secrets: {str(e)}")
     return None
 
 def estimate_bp_from_frame(frame):
@@ -271,10 +273,14 @@ async def get_openai_recommendations(bp_data: Dict, user_info: Dict) -> Dict:
         # Try one more time with our helper function
         print("Trying to get API key")
         api_key = get_openai_api_key()
-      if not api_key:
+    
+    if not api_key:
         # Avoid printing warning if we're likely using Streamlit secrets
-        if not hasattr(st, 'secrets') or not ('openai' in st.__dict__.get('secrets', {})):
-            print("OpenAI API key not found, returning empty recommendations")
+        try:
+            if not hasattr(st, 'secrets') or not ('openai' in st.__dict__.get('secrets', {}) and st.secrets['openai'].get('api_key')):
+                print("OpenAI API key not found, returning empty recommendations")
+        except Exception as e:
+            print(f"Error checking Streamlit secrets: {str(e)}")
         return {
             "error": "API key not available",
             "diet": [],

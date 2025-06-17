@@ -13,8 +13,33 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Import utilities for API key handling
-from utils.bp_utils import get_openai_api_key
+# Set up path to allow for relative imports within bp_app
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)  # bp_app dir
+sys.path.insert(0, parent_dir)  # Add bp_app to path
+
+# First try to import directly
+try:
+    # Ensure utils directory is in the path
+    utils_dir = os.path.join(parent_dir, "utils")
+    if utils_dir not in sys.path:
+        sys.path.insert(0, utils_dir)
+    
+    # Try different import strategies
+    try:
+        from bp_utils import get_openai_api_key
+        print("Successfully imported get_openai_api_key from bp_utils directly")
+    except ImportError:
+        try:
+            from utils.bp_utils import get_openai_api_key  
+            print("Successfully imported get_openai_api_key from utils.bp_utils")
+        except ImportError:
+            from bp_app.utils.bp_utils import get_openai_api_key
+            print("Successfully imported get_openai_api_key from bp_app.utils.bp_utils")
+except Exception as e:
+    st.error(f"Failed to import bp_utils: {str(e)}")
+    print(f"Error importing bp_utils: {str(e)}")
+    print(f"Current sys.path: {sys.path}")
 
 # Set up a more robust environment variable loading process
 print("Health Recommendations page: Initializing API key handling")
@@ -180,37 +205,39 @@ with tab1:
         if not api_key:
             api_key = get_openai_api_key()
             api_key_found = bool(api_key)
-        
-        # Only show success icon if API key is found, don't show warnings
+          # Only show success icon if API key is found, don't show warnings
         if api_key_found:
             st.sidebar.success("✅ Using AI-powered recommendations")
         
         # Generate recommendations based on API key availability
         if not api_key:
-            # Use default recommendations without showing warnings
+            # Use default recommendations without showing warnings to regular users
             print("API key not found, using default recommendations")
             recommendations = get_default_recommendations(bp_classification["category"])
             
-            # Optional: Users who need to debug can expand this section
-            with st.expander("Advanced: API Configuration"):
-                st.info("Using standard recommendations. For personalized AI recommendations, an OpenAI API key is needed.")
-                
-                # Check if Streamlit secrets is configured correctly
-                if hasattr(st, 'secrets'):
-                    if 'openai' in st.secrets:
-                        if 'api_key' in st.secrets['openai']:
-                            if st.secrets['openai']['api_key']:
-                                st.success("API key found in Streamlit secrets but not accessible. Try restarting the app.")
+            # Only show debug info if we're not using Streamlit secrets
+            # If using Streamlit secrets but API key is still not accessible, provide minimal UI feedback
+            using_secrets = hasattr(st, 'secrets') and 'openai' in st.secrets
+            
+            if not using_secrets:
+                # Optional: Users who need to debug can expand this section
+                with st.expander("Advanced: API Configuration"):
+                    st.info("Using standard recommendations. For personalized AI recommendations, an OpenAI API key is needed.")
+                    
+                    # Check if Streamlit secrets is configured correctly
+                    if hasattr(st, 'secrets'):
+                        if 'openai' in st.secrets:
+                            if 'api_key' in st.secrets['openai']:
+                                if st.secrets['openai']['api_key']:
+                                    st.success("API key found in Streamlit secrets but not accessible. Try restarting the app.")
+                                else:
+                                    st.warning("API key in Streamlit secrets is empty.")
                             else:
-                                st.warning("API key in Streamlit secrets is empty.")
+                                st.warning("'api_key' missing from 'openai' section in secrets.")
                         else:
-                            st.warning("'api_key' missing from 'openai' section in secrets.")
+                            st.warning("'openai' section missing from secrets configuration.")
                     else:
-                        st.warning("'openai' section missing from secrets configuration.")
-                else:
-                    st.warning("Streamlit secrets are not available.")
-              # Use default recommendations since we can't use OpenAI
-            recommendations = get_default_recommendations(bp_classification["category"])
+                        st.warning("Streamlit secrets are not available.")
         else:
             st.success("✅ Using OpenAI API for personalized recommendations")
             # Create a spinner while recommendations are generating
