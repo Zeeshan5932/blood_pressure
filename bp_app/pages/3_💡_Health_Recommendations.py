@@ -13,22 +13,45 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables from multiple sources
 root_dir = Path(__file__).parent.parent.parent.absolute()
 env_path = root_dir / '.env'
 print(f"Looking for .env file at: {env_path}")
-env_loaded = load_dotenv(dotenv_path=str(env_path), verbose=True)
 
-# Log environment loading status
-if env_loaded:
-    print(f".env file loaded successfully from {env_path}")
-    api_key = os.getenv("OPENAI_API_KEY")
-    if api_key:
-        print(f"OpenAI API key found: {api_key[:5]}...{api_key[-5:] if len(api_key) > 10 else ''}")
+# Try to get API key from multiple sources
+api_key_found = False
+
+# First check if key is already in environment variables
+if 'OPENAI_API_KEY' in os.environ and os.environ['OPENAI_API_KEY']:
+    api_key_found = True
+    print(f"OpenAI API key found in environment variables")
+
+# Then check Streamlit secrets
+if not api_key_found and hasattr(st, 'secrets') and 'openai' in st.secrets:
+    try:
+        if st.secrets['openai'].get('api_key'):
+            os.environ["OPENAI_API_KEY"] = st.secrets['openai']['api_key']
+            api_key_found = True
+            print(f"OpenAI API key found in Streamlit secrets")
+    except Exception as e:
+        print(f"Error accessing Streamlit secrets: {str(e)}")
+
+# Finally try .env file (for local development)
+if not api_key_found:
+    env_loaded = load_dotenv(dotenv_path=str(env_path), verbose=True)
+    if env_loaded and os.getenv("OPENAI_API_KEY"):
+        api_key_found = True
+        print(f".env file loaded successfully from {env_path}")
     else:
-        print("OpenAI API key not found in .env file")
+        print(f"Failed to load API key from .env file at {env_path}")
+
+# Log final status
+if api_key_found:
+    api_key = os.getenv("OPENAI_API_KEY")
+    masked_key = f"{api_key[:5]}...{api_key[-5:]}" if api_key and len(api_key) > 10 else "***"
+    print(f"OpenAI API key found: {masked_key}")
 else:
-    print(f"Failed to load .env file from {env_path}")
+    print("OpenAI API key not found in any location")
 
 # Try to import OpenCV, but don't fail if it's not available
 try:
@@ -129,26 +152,39 @@ tab1, tab2 = st.tabs(["AI-Powered Recommendations", "What This Means"])
 with tab1:
     with st.container():
         st.markdown("<h2 class='section-header'>Your Personalized Health Plan</h2>", unsafe_allow_html=True)
-        
-        # First check if the OpenAI API key is set - using os.getenv which works with dotenv
+          # Check if the OpenAI API key is set
         api_key = os.getenv('OPENAI_API_KEY')
         
-        # Display environment loading status in the UI
-        if env_loaded:
-            st.sidebar.success("✅ Environment file loaded successfully")
+        # Display API key status in the UI
+        if api_key_found:
+            st.sidebar.success("✅ OpenAI API key loaded successfully")
         else:
-            st.sidebar.error(f"❌ Failed to load .env file from {env_path}")
+            st.sidebar.error("❌ OpenAI API key not found")
         
         if not api_key:
-            st.warning("⚠️ OpenAI API key not found. Please add your API key to the .env file to get AI-powered recommendations.")
-            st.info("Using default recommendations instead.")
+            st.warning("⚠️ OpenAI API key not found. Using default recommendations instead.")
+            st.info("To get personalized AI recommendations, please set up your OpenAI API key in Streamlit secrets or the .env file.")
             
             # Show debug info in an expandable section
             with st.expander("Debug Information"):
+                st.write(f"API key found in any location: {api_key_found}")
                 st.write(f"Environment file path: {env_path}")
                 st.write(f"Environment file exists: {env_path.exists()}")
-                st.write(f"Environment loaded successfully: {env_loaded}")
                 st.write(f"Current working directory: {os.getcwd()}")
+                
+                # Check if Streamlit secrets is available
+                if hasattr(st, 'secrets'):
+                    st.write("Streamlit secrets is available")
+                    if 'openai' in st.secrets:
+                        st.write("'openai' section exists in Streamlit secrets")
+                        if 'api_key' in st.secrets['openai']:
+                            st.write("'api_key' exists in Streamlit secrets (but might be empty)")
+                        else:
+                            st.write("'api_key' missing from Streamlit secrets")
+                    else:
+                        st.write("'openai' section missing from Streamlit secrets")
+                else:
+                    st.write("Streamlit secrets is not available")
             
             recommendations = get_default_recommendations(bp_classification["category"])
         else:

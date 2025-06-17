@@ -111,10 +111,80 @@ BP-Fuel-AI/
 
 ## Troubleshooting
 
-- **ImportError**: If you encounter import errors, make sure your project structure matches the one described above.
-- **API Key Issues**: Verify your OpenAI API key is correctly set in the appropriate location.
-- **OpenCV Issues**: If you encounter issues with OpenCV, try reinstalling with `pip install --force-reinstall opencv-python-headless`.
-- **Webcam Access**: For webcam functionality, ensure your browser has permission to access the camera.
+### OpenAI API Key Issues
+
+If you see the error: "⚠️ OpenAI API key not found. Using default recommendations instead.", follow these steps:
+
+#### For Local Development:
+
+1. Create a `.env` file in the project root directory with your OpenAI API key:
+   ```
+   OPENAI_API_KEY=your_openai_api_key_here
+   ```
+
+2. Alternatively, create a `.streamlit/secrets.toml` file:
+   ```toml
+   [openai]
+   api_key = "your_openai_api_key_here"
+   ```
+   You can copy the template from `secrets.toml.template`
+
+3. Make sure you have installed all requirements:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Restart the Streamlit app
+
+#### For Streamlit Cloud Deployment:
+
+1. In your Streamlit Cloud dashboard, go to "Settings" > "Secrets"
+
+2. Add your OpenAI API key in this format:
+   ```toml
+   [openai]
+   api_key = "your_openai_api_key_here"
+   ```
+
+3. Save your secrets and redeploy the app
+
+### Import Errors
+
+If you see any import errors:
+
+1. Make sure your project structure matches exactly:
+   ```
+   BP-Fuel-AI/
+   ├── bp_app/
+   │   ├── __init__.py  # Important!
+   │   ├── utils/
+   │   │   ├── __init__.py  # Important!
+   │   │   └── bp_utils.py
+   ```
+
+2. Try running with debug output:
+   ```bash
+   streamlit run streamlit_app.py --logger.level=debug
+   ```
+
+### OpenCV Issues
+
+If OpenCV is causing problems:
+
+1. Try reinstalling with:
+   ```bash
+   pip uninstall opencv-python opencv-python-headless
+   pip install opencv-python-headless==4.6.0.66
+   ```
+
+2. Make sure your system has the necessary dependencies (on Linux):
+   ```bash
+   apt-get update && apt-get install -y libgl1-mesa-glx libglib2.0-0
+   ```
+
+### Webcam Access
+
+For webcam functionality, ensure your browser has permission to access the camera.
 
 ## Disclaimer
 
