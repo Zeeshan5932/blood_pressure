@@ -2,66 +2,31 @@ import os
 import sys
 import streamlit as st
 
-# Configure logging to help debug issues
-import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+"""
+BP Fuel AI - Main Entry Point
+This is the entry point for the BP Fuel AI application. It:
+1. Sets up the Python import path for the application
+2. Redirects to the main application file
+"""
 
-logger.info("Starting BP Fuel AI application")
-logger.info(f"Current working directory: {os.getcwd()}")
-logger.info(f"Python version: {sys.version}")
-logger.info(f"Streamlit version: {st.__version__}")
-
-# Set up paths in a way that works for both local and cloud
-try:
-    # First, identify the project root directory 
-    project_root = os.path.dirname(os.path.abspath(__file__))
-    logger.info(f"Project root: {project_root}")
-    
-    # Make sure our project root is in sys.path
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-        logger.info(f"Added project root to sys.path")
-    
-    # Clear out any existing 'utils' from sys.path to avoid confusion with cv2.utils
-    sys.path = [p for p in sys.path if not p.endswith('utils')]
-    
-    # Import main module from bp_app directory
-    logger.info("Importing main module...")
-    
-    # Print out the current sys.path for debugging
-    logger.info(f"sys.path: {sys.path}")
-    
-    # Try to run the main app
+# Show that we're loading
+st.set_page_config(page_title="BP Fuel AI", page_icon="❤️")
+with st.spinner("Loading BP Fuel AI..."):
     try:
-        # Execute the main.py file directly using a direct reference
-        main_file = os.path.join(project_root, "bp_app", "main.py")
-        logger.info(f"Executing main file from: {main_file}")
+        # Make the project directory structure available for imports
+        # This works both locally and on Streamlit Cloud
+        current_dir = os.path.dirname(os.path.abspath(__file__))
         
-        # Use execfile-like behavior to run the main module
-        with open(main_file, "r") as f:
-            code = compile(f.read(), main_file, 'exec')
-            exec(code, globals())
+        # Ensure current directory is in path
+        if current_dir not in sys.path:
+            sys.path.insert(0, current_dir)
+        
+        # Import and run the main module directly
+        # This avoids path issues as we're using the module system
+        from bp_app.main import run_app
+        run_app()
+        
     except Exception as e:
-        logger.error(f"Error executing main.py: {str(e)}", exc_info=True)
-        st.error("⚠️ Error running the application")
+        st.error("❌ Error loading application")
         st.exception(e)
-        
-        # Show more debug info
-        st.info("Debug information:")
-        st.code(f"Working directory: {os.getcwd()}")
-        st.code(f"Python path: {sys.path}")
-        
-        # Try to show existing modules for debugging
-        try:
-            import pkgutil
-            modules = [m for _, m, _ in pkgutil.iter_modules()]
-            st.code(f"Available modules: {modules[:20]}...")
-        except:
-            pass
-            
-except Exception as e:
-    logger.error(f"Setup error: {str(e)}", exc_info=True)
-    st.error("⚠️ Error setting up the application")
-    st.exception(e)
-    st.info("Please check that all dependencies are installed correctly via requirements.txt")
+        st.info("Please make sure all dependencies are installed: `pip install -r requirements.txt`")

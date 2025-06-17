@@ -38,11 +38,33 @@ except ImportError:
     OPENCV_AVAILABLE = False
     # We'll handle missing OpenCV gracefully as we're mainly using it for display in this page
 
-# Fix import path to avoid conflict with cv2.utils
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Set up path to allow for relative imports within bp_app
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)  # bp_app dir
+utils_dir = os.path.join(parent_dir, "utils")
 
-# Use absolute import to avoid conflict with cv2.utils
-from bp_app.utils.bp_utils import classify_blood_pressure, get_openai_recommendations, get_default_recommendations
+# Explicitly import from the utils directory
+sys.path.insert(0, parent_dir)  # Add bp_app to path
+
+# Try both import styles for compatibility
+try:
+    # Try simple relative import first
+    from utils.bp_utils import classify_blood_pressure, get_openai_recommendations, get_default_recommendations
+    print("Successfully imported from utils.bp_utils")
+except ImportError:
+    try:
+        # Try absolute import as fallback
+        from bp_app.utils.bp_utils import classify_blood_pressure, get_openai_recommendations, get_default_recommendations
+        print("Successfully imported from bp_app.utils.bp_utils")
+    except ImportError as e:
+        # Show helpful error information
+        print(f"Import error: {str(e)}")
+        print(f"Python path: {sys.path}")
+        print(f"Parent directory: {parent_dir}")
+        print(f"Utils directory: {utils_dir}")
+        print(f"Current directory: {current_dir}")
+        # Re-raise to show the error in the UI
+        raise
 
 # Load custom CSS
 css_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "styles.css")
